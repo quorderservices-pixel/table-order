@@ -1,166 +1,142 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
 
-interface OrderItem {
+export interface SelectedModifier {
+  groupName: string;
+  optionName: string;
+  price: number;
+}
+
+export interface CartItem {
+  cartItemId: string;
   name: string;
-  quantity?: number;
-  qty?: number;
-  price: number | string;
+  selectedModifiers: SelectedModifier[];
+  itemTotal: number;
+  quantity: number;
+  specialInstructions?: string;
 }
 
-interface Order {
+export interface KitchenOrder {
   id: string;
-  table: string | number;
-  items: OrderItem[];
-  total: number | string;
-  time: string;
-  status: 'new' | 'done';
+  tableNumber: number;
+  items: CartItem[];
+  totalAmount: number;
+  timestamp: string;
+  status: "pending" | "completed";
 }
 
-function playKitchenChime() {
-  try {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
-
-    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
-
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.8);
-  } catch (e) {
-    console.error('Audio chime error:', e);
-  }
-}
-
-export default function KitchenDisplay() {
-  const [orders, setOrders] = useState<Order[]>([]);
+export default function KitchenPage() {
+  const [orders, setOrders] = useState<KitchenOrder[]>([]);
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/order');
-      const data = await res.json();
-      if (data.orders) {
-        setOrders((prev) => {
-          if (data.orders.length > prev.length && prev.length > 0) {
-            playKitchenChime();
-          }
-          return data.orders;
-        });
+      const res = await fetch("/api/orders");
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
       }
     } catch (err) {
-      console.error('Failed to fetch orders:', err);
+      console.error("Failed to fetch KDS orders:", err);
     }
   };
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 3000);
+    const interval = setInterval(fetchOrders, 3000); // Auto-refresh ticket list every 3s
     return () => clearInterval(interval);
   }, []);
 
-  const markAsReady = async (id: string) => {
-    setOrders((prev) => prev.filter((order) => order.id !== id));
-
+  const markComplete = async (orderId: string) => {
     try {
-      await fetch('/api/order', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
+      await fetch(`/api/orders?id=${orderId}`, { method: "DELETE" });
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
     } catch (err) {
-      console.error('Failed to mark order as done:', err);
+      console.error("Failed to complete order:", err);
     }
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white p-6 font-sans">
-      <div className="flex justify-between items-center border-b border-neutral-800 pb-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Kitchen Display System</h1>
-          <p className="text-sm text-neutral-400">Live incoming table orders</p>
-        </div>
-        <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider bg-emerald-950 text-emerald-400 border border-emerald-800 px-3 py-1.5 rounded-full">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          Live Feed
+    <main className="min-h-screen bg-neutral-950 text-white p-6">
+      <header className="flex justify-between items-center mb-6 border-b border-neutral-800 pb-4">
+        <h1 className="text-2xl font-bold tracking-tight">Kitchen Display System (KDS)</h1>
+        <span className="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/40">
+          Live Connection Active
         </span>
-      </div>
+      </header>
 
       {orders.length === 0 ? (
-        <div className="text-center py-20 text-neutral-500 font-medium">
-          Waiting for incoming orders...
+        <div className="text-center py-20 text-neutral-500">
+          No pending orders in queue.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {orders.map((order) => {
-            const tableLabel = order.table
-              ? order.table.toString().toLowerCase().includes('table')
-                ? order.table
-                : `Table ${order.table}`
-              : 'Table 1';
-
-            return (
-              <div
-                key={order.id}
-                className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 shadow-lg flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex justify-between items-start mb-3 border-b border-neutral-800 pb-3">
-                    <span className="bg-amber-500 text-black font-extrabold text-sm px-2.5 py-1 rounded-md uppercase">
-                      {tableLabel}
-                    </span>
-                    <span className="text-xs text-neutral-400 font-mono">{order.time}</span>
-                  </div>
-
-                  <ul className="space-y-2 mb-4">
-                    {order.items?.map((item, idx) => {
-                      const qty = item.quantity ?? item.qty ?? 1;
-                      const rawPrice = Number(item.price);
-                      const unitPrice = isNaN(rawPrice) ? 0 : rawPrice;
-                      const lineTotal = unitPrice * qty;
-
-                      return (
-                        <li key={idx} className="flex justify-between text-sm">
-                          <span className="font-semibold text-neutral-200">
-                            {qty}x {item.name}
-                          </span>
-                          <span className="text-neutral-400">
-                            {lineTotal > 0 ? `£${lineTotal.toFixed(2)}` : ''}
-                          </span>
-                        </li>
-                      );
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {orders.map((order) => (
+            <div
+              key={order.id}
+              className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between shadow-lg"
+            >
+              <div>
+                <div className="flex justify-between items-center border-b border-neutral-800 pb-3 mb-4">
+                  <span className="text-lg font-extrabold text-red-400">
+                    Table {order.tableNumber}
+                  </span>
+                  <span className="text-xs text-neutral-400">
+                    {new Date(order.timestamp).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
-                  </ul>
+                  </span>
                 </div>
 
-                <div>
-                  <div className="border-t border-neutral-800 pt-3 flex justify-between items-center text-sm font-bold">
-                    <span>Total</span>
-                    <span>
-                      £{isNaN(Number(order.total)) ? '0.00' : Number(order.total).toFixed(2)}
-                    </span>
-                  </div>
+                <div className="space-y-4 mb-6">
+                  {order.items.map((item, idx) => (
+                    <div key={idx} className="border-b border-neutral-800/50 pb-2">
+                      <div className="flex justify-between font-bold text-base">
+                        <span>
+                          {item.quantity}x {item.name}
+                        </span>
+                        <span>£{(item.itemTotal * item.quantity).toFixed(2)}</span>
+                      </div>
 
-                  <button
-                    onClick={() => markAsReady(order.id)}
-                    className="mt-4 w-full py-2.5 bg-neutral-800 hover:bg-emerald-600 hover:text-white text-neutral-300 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
-                  >
-                    Mark as Ready
-                  </button>
+                      {/* Render custom options/modifiers */}
+                      {item.selectedModifiers && item.selectedModifiers.length > 0 && (
+                        <ul className="mt-1 pl-4 text-xs text-yellow-300 list-disc space-y-0.5">
+                          {item.selectedModifiers.map((mod, mIdx) => (
+                            <li key={mIdx}>
+                              {mod.optionName}{" "}
+                              {mod.price > 0 ? `(+£${mod.price.toFixed(2)})` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {/* Render kitchen notes */}
+                      {item.specialInstructions && (
+                        <p className="mt-1 text-xs italic text-red-400">
+                          Note: {item.specialInstructions}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            );
-          })}
+
+              <div className="pt-2 border-t border-neutral-800 flex justify-between items-center">
+                <span className="font-bold text-emerald-400">
+                  Total: £{order.totalAmount.toFixed(2)}
+                </span>
+                <button
+                  onClick={() => markComplete(order.id)}
+                  className="bg-emerald-500 text-black font-bold px-4 py-2 rounded-lg text-sm hover:bg-emerald-400"
+                >
+                  Complete Ticket
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
-    </div>
+    </main>
   );
 }
