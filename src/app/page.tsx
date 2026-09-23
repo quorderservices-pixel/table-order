@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface ModifierOption {
   name: string;
@@ -18,7 +18,7 @@ export interface MenuItem {
   name: string;
   description: string;
   price: number;
-  category: "burgers" | "chicken" | "sides" | "drinks" | "desserts";
+  category: "burgers" | "chicken" | "sides" | "drinks" | "desserts" | string;
   image?: string;
   modifierGroups?: ModifierGroup[];
 }
@@ -40,121 +40,36 @@ export interface CartItem {
   specialInstructions?: string;
 }
 
-const MENU_ITEMS: MenuItem[] = [
-  {
-    id: "smash-burger",
-    name: "Classic Smash Burger",
-    description: "Aged beef patty, American cheese, house sauce, pickles, brioche bun.",
-    price: 8.5,
-    category: "burgers",
-    modifierGroups: [
-      {
-        name: "Patty Selection",
-        required: true,
-        options: [
-          { name: "Single Patty", price: 0 },
-          { name: "Double Patty", price: 2.5 },
-          { name: "Triple Patty", price: 4.5 },
-        ],
-      },
-      {
-        name: "Customization / Removals",
-        required: false,
-        options: [
-          { name: "No Pickles", price: 0 },
-          { name: "No House Sauce", price: 0 },
-          { name: "Extra Cheese", price: 1.0 },
-          { name: "Add Bacon", price: 1.5 },
-        ],
-      },
-    ],
-  },
-  {
-    id: "crispy-chicken-burger",
-    name: "Crispy Chicken Burger",
-    description: "Buttermilk fried chicken breast, spicy mayo, lettuce, pickles.",
-    price: 9.0,
-    category: "chicken",
-    modifierGroups: [
-      {
-        name: "Spice Level",
-        required: true,
-        options: [
-          { name: "Mild / Classic", price: 0 },
-          { name: "Spicy", price: 0 },
-          { name: "Extra Hot Naga", price: 0.5 },
-        ],
-      },
-      {
-        name: "Customization / Removals",
-        required: false,
-        options: [
-          { name: "No Lettuce", price: 0 },
-          { name: "No Mayo", price: 0 },
-          { name: "Extra Cheese", price: 1.0 },
-          { name: "Add Bacon", price: 1.5 },
-        ],
-      },
-    ],
-  },
-  {
-    id: "rosemary-fries",
-    name: "Rosemary Salt Fries",
-    description: "Hand-cut crispy fries tossed in fresh rosemary sea salt.",
-    price: 3.5,
-    category: "sides",
-    modifierGroups: [
-      {
-        name: "Size",
-        required: true,
-        options: [
-          { name: "Regular", price: 0 },
-          { name: "Large", price: 1.5 },
-        ],
-      },
-      {
-        name: "Dipping Sauce",
-        required: false,
-        options: [
-          { name: "Garlic Mayo", price: 0.8 },
-          { name: "House Smash Sauce", price: 0.8 },
-          { name: "Spicy Ketchup", price: 0.5 },
-        ],
-      },
-    ],
-  },
-  {
-    id: "coke-zero",
-    name: "Coca-Cola Zero Sugar",
-    description: "330ml chilled can.",
-    price: 2.0,
-    category: "drinks",
-    modifierGroups: [
-      {
-        name: "Serving Preference",
-        required: false,
-        options: [
-          { name: "Ice & Lemon", price: 0 },
-          { name: "No Ice", price: 0 },
-        ],
-      },
-    ],
-  },
-];
-
 export default function Home() {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [selectedModifiers, setSelectedModifiers] = useState<SelectedModifier[]>([]);
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fetch dynamic menu from API
+  const fetchMenu = async () => {
+    try {
+      const res = await fetch("/api/menu");
+      if (res.ok) {
+        const data = await res.json();
+        setMenuItems(data);
+      }
+    } catch (err) {
+      console.error("Failed to load menu items:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchMenu();
+  }, []);
+
   const handleAddToCart = (item: MenuItem) => {
     setModalItem(item);
     setSelectedModifiers([]);
     setSpecialInstructions("");
 
-    // Pre-select required options if available
     if (item.modifierGroups) {
       const defaults: SelectedModifier[] = [];
       item.modifierGroups.forEach((group) => {
@@ -280,7 +195,7 @@ export default function Home() {
         <div className="md:col-span-2 space-y-4">
           <h2 className="text-xl font-bold text-neutral-200">Menu</h2>
           <div className="grid grid-cols-1 gap-4">
-            {MENU_ITEMS.map((item) => (
+            {menuItems.map((item) => (
               <div
                 key={item.id}
                 className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex justify-between items-center"
@@ -289,7 +204,7 @@ export default function Home() {
                   <h3 className="font-bold text-lg">{item.name}</h3>
                   <p className="text-xs text-neutral-400 mb-2">{item.description}</p>
                   <span className="font-semibold text-emerald-400">
-                    £{item.price.toFixed(2)}
+                    £{Number(item.price).toFixed(2)}
                   </span>
                 </div>
                 <button
