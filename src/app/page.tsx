@@ -199,7 +199,7 @@ export default function Home() {
 
     try {
       // Send order to KDS API route
-      await fetch("/api/orders", {
+      await fetch("/api/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderPayload),
