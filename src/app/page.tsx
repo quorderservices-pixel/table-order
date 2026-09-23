@@ -190,12 +190,19 @@ export default function Home() {
     if (cart.length === 0) return;
     setIsSubmitting(true);
 
-    const orderPayload = {
-      tableNumber: 1,
-      items: cart,
-      totalAmount: cartTotal,
-      timestamp: new Date().toISOString(),
-    };
+   const orderPayload = {
+  table: 1,
+  items: cart.map((item) => ({
+    name: item.name,
+    quantity: item.quantity,
+    price: item.itemTotal,
+    selectedModifiers: item.selectedModifiers,
+    specialInstructions: item.specialInstructions,
+  })),
+  total: cartTotal,
+  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  status: "new",
+};
 
     try {
       // Send order to KDS API route
