@@ -49,7 +49,7 @@ export default function KitchenPage() {
 
   const markComplete = async (orderId: string) => {
     try {
-      await fetch(`/api/orders?id=${orderId}`, { method: "DELETE" });
+      await fetch(`/api/order?id=${orderId}`, { method: "DELETE" });
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
     } catch (err) {
       console.error("Failed to complete order:", err);
